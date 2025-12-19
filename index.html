@@ -1,0 +1,850 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Copilot向け 画像編集プロンプトジェネレーターPoC</title>
+  <style>
+    :root{
+      --bg:#f6f8ff;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#475569;
+      --line:rgba(15,23,42,.14);
+      --accent:#7c3aed;
+      --danger:#e11d48;
+      --warn:#d97706;
+      --ok:#16a34a;
+      --shadow: 0 10px 30px rgba(2,6,23,.10);
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0;
+      font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Yu Gothic", Meiryo, Arial, sans-serif;
+      color:var(--text);
+      background: radial-gradient(1000px 700px at 20% -10%, rgba(124,58,237,.10), transparent 60%),
+                  radial-gradient(900px 700px at 90% 0%, rgba(14,165,233,.06), transparent 60%),
+                  var(--bg);
+      min-height:100vh;
+    }
+    a{color:inherit}
+    .wrap{max-width:1100px; margin:0 auto; padding:18px 14px 36px}
+    header{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+    .brand{display:flex; align-items:center; gap:12px;}
+    .logo{
+      width:40px; height:40px; border-radius:14px;
+      background: radial-gradient(circle at 30% 30%, rgba(255,255,255,.9), rgba(255,255,255,.2)),
+                  linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.75));
+      box-shadow: var(--shadow);
+      border:1px solid rgba(124,58,237,.25);
+    }
+    .brand h1{font-size:20px; margin:0}
+    .brand .sub{font-size:12px; color:var(--muted); margin-top:3px}
+    .pill{
+      font-size:12px; color:var(--muted);
+      border:1px solid var(--line);
+      background: rgba(248,250,252,.85);
+      padding:6px 10px; border-radius:999px;
+    }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+    }
+    .pad{padding:14px}
+    .grid{display:grid; grid-template-columns: 1fr; gap:14px}
+    .row{display:flex; gap:10px; align-items:flex-start; flex-wrap:wrap}
+    .row > *{flex:1 1 240px}
+    label{display:block; font-size:12px; color:var(--muted); margin:0 0 6px}
+    input, select{
+      width:100%;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(248,250,252,.90);
+      color: var(--text);
+      outline:none;
+    }
+    textarea{
+      width:100%;
+      min-height:92px;
+      padding:10px 10px;
+      border-radius:12px;
+      border:1px solid var(--line);
+      background: rgba(248,250,252,.90);
+      color: var(--text);
+      outline:none;
+      resize: vertical;
+    }
+    input:focus, select:focus, textarea:focus{
+      box-shadow: 0 0 0 4px rgba(124,58,237,.12);
+      border-color: rgba(124,58,237,.48);
+    }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:8px;
+      border-radius: 12px;
+      padding: 10px 12px;
+      border: 1px solid rgba(124,58,237,.45);
+      background: rgba(124,58,237,.12);
+      color: var(--text);
+      cursor:pointer;
+      user-select:none;
+      font-weight: 650;
+      white-space: nowrap;
+    }
+    .btn:hover{filter:brightness(.98)}
+    .btn:active{transform: translateY(1px)}
+    .btn.primary{
+      background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.70));
+      border-color: rgba(124,58,237,.55);
+      color:white;
+    }
+    .btn.ghost{
+      background: rgba(248,250,252,.85);
+      border-color: var(--line);
+      font-weight: 600;
+    }
+    .btn.danger{
+      background: rgba(225,29,72,.10);
+      border-color: rgba(225,29,72,.35);
+    }
+    .btn.active{background: rgba(124,58,237,.14); border-color: rgba(124,58,237,.55);}
+    .hint{font-size:12px; color:var(--muted); line-height:1.55}
+    .subtle{font-size:13px; color:var(--muted); line-height:1.6}
+    .hd{display:flex; align-items:flex-start; justify-content:space-between; padding: 14px 14px 0; gap: 12px;}
+    .hd h2{margin:0; font-size:14px}
+    .hr{height:1px; background:var(--line); margin:12px 0}
+    .hidden{display:none !important}
+    .gateWrap{max-width:820px; margin:18px auto 0}
+    .check{display:flex; gap:10px; align-items:center}
+    .check input{margin-top:0; transform: translateY(2px); width:auto}
+    .dz{
+      border: 1px dashed rgba(124,58,237,.45);
+      background: rgba(124,58,237,.06);
+      border-radius: 16px;
+      padding: 14px;
+      min-height: 118px;
+      display:flex; gap:12px; align-items:center; justify-content:space-between;
+    }
+    .dz.drag{background: rgba(124,58,237,.10); border-color: rgba(124,58,237,.70)}
+    .dzLeft{flex:1 1 420px}
+    .dzTitle{font-weight:750; margin:0 0 6px; font-size:13px}
+    .dzMeta{font-size:12px; color:var(--muted)}
+    .dzBtns{display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end}
+    .previewRow{display:flex; gap:12px; flex-wrap:wrap}
+    .preview{
+      flex: 0 0 320px;
+      border:1px solid var(--line);
+      border-radius:16px;
+      background: rgba(248,250,252,.85);
+      overflow:hidden;
+    }
+    .preview img{display:block; width:100%; height:auto}
+    .previewInfo{flex:1 1 280px}
+    .kv{display:grid; grid-template-columns: 120px 1fr; gap:8px 12px; font-size:12px; color:var(--muted)}
+    .kv b{color:var(--text)}
+    .out{
+      width:100%;
+      min-height:260px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size:12px;
+      line-height:1.55;
+      background: rgba(248,250,252,.95);
+    }
+    .toast{
+      position: fixed;
+      left: 50%;
+      bottom: 18px;
+      transform: translateX(-50%);
+      background: rgba(15,23,42,.82);
+      color:#fff;
+      padding: 10px 12px;
+      border-radius: 999px;
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: var(--shadow);
+      font-size: 12px;
+      opacity: 0;
+      pointer-events:none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast.show{opacity:1; transform: translateX(-50%) translateY(-2px)}
+    .mini{padding:12px; border-radius:16px; border:1px solid var(--line); background: rgba(241,245,249,.85);}
+    #refineCard{background: rgba(255,255,255,1); box-shadow: 0 6px 18px rgba(2,6,23,.06);}
+    #refineCard textarea{background: rgba(248,250,252,.98);}
+  
+    .pill.risk-low{border-color: rgba(22,163,74,.35); background: rgba(22,163,74,.06);}
+    .pill.risk-mid{border-color: rgba(217,119,6,.35); background: rgba(217,119,6,.06);}
+    .pill.risk-high{border-color: rgba(225,29,72,.35); background: rgba(225,29,72,.06);}
+
+  
+    /* Mode buttons: clearer selected/unselected */
+    .modeBtn{border-color: rgba(124,58,237,.55); background: rgba(124,58,237,.08); color: var(--text);}
+    .modeBtn.active{background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.70)); color:#fff; border-color: rgba(124,58,237,.65);}
+
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="brand">
+        <div class="logo" aria-hidden="true"></div>
+        <div>
+          <h1>Copilot向け 画像編集プロンプトジェネレーターPoC</h1>
+          <div class="sub">ドラッグ&ドロップされた画像を「思い通りに修正」するためのCopilot用プロンプトを作成します。</div>
+        </div>
+      </div>
+</header>
+
+    <section id="gate" class="gateWrap">
+      <div class="card pad">
+        <div class="row" style="align-items:center; justify-content:space-between">
+          <h2 style="font-size:14px; margin:0">はじめに</h2>
+        </div>
+        <div class="hr"></div>
+
+        <div class="subtle">
+          このツールは、画像を「思い通りに修正」するための<b>Copilot向けプロンプト</b>を作ります。<br/>
+          <b>画像はブラウザ内でのみ扱い、外部への送信は致しません。</b><br/><br/>
+          <span class="subtle">* 生成されたプロンプトはCopilot向けに最適化されており、その他の生成AIにおいては十分な効果を発揮しない可能性があることをご理解ください。</span><br/>
+          <span class="subtle">* また、本サービスはあくまでもPoCであることから、未完成な部分も多々存在することをご理解のうえ、ご利用ください。</span>
+        </div>
+
+        <div class="subtle" style="margin-top:10px">
+          <b>注意</b><br/>
+          <div class="subtle" style="margin-top:6px">
+            ・このツールの出力（プロンプト/画像）は最終成果物ではなく、利用者が必ず確認すること<br/>
+            ・生成された画像は社内ルールに従って利用すること<br/>
+            ・本件の内容およびURL,コードの社外への開示を禁じます<br/>
+            ・本サービスは作成者の意向により、突如閉鎖する可能性があります
+          </div>
+        </div>
+
+        <div class="hr"></div>
+
+        <div class="row" style="align-items:flex-end; gap:10px">
+          <div style="flex: 1 1 300px">
+            <label for="pass">利用コード</label>
+            <input id="pass" type="text" placeholder="" autocomplete="off" />
+          </div>
+          <div style="flex: 1 1 220px">
+            <label style="visibility:hidden">.</label>
+            <div class="check">
+              <input id="agree" type="checkbox" />
+              <div class="subtle"><b>以下の内容に同意します</b></div>
+            </div>
+            <div id="gateMsg" class="hint" style="margin-top:6px"></div>
+          </div>
+          <div style="flex: 1 1 220px; align-self:flex-end; text-align:left">
+            <button id="enterBtn" class="btn primary" type="button">同意して開始</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="main" class="hidden">
+      <div class="grid">
+        <div class="card">
+          <div class="hd">
+            <h2>条件入力</h2>
+            
+          </div>
+          <div class="pad">
+            <div id="dropzone" class="dz" tabindex="0" role="button" aria-label="画像をドラッグ&ドロップ、またはクリックして選択">
+              <div class="dzLeft">
+                <div class="dzTitle">編集したい画像をこちらにドラッグしてください</div>
+                <div class="dzMeta">右のボタンから画像を選択することも可能です（PNG / JPG / WEBP）</div>
+              </div>
+              <div class="dzBtns">
+                <input id="file" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" />
+                <button id="pickBtn" class="btn ghost" type="button">画像を選択</button>
+                <button id="clearBtn" class="btn danger" type="button">画像を解除</button>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:12px">
+              <div class="previewRow" style="width:100%">
+                <div class="preview" id="previewBox">
+                  <img id="previewImg" alt="プレビュー" src="" class="hidden" />
+                  <div id="previewEmpty" class="hint" style="padding:12px">画像が未選択です。</div>
+                </div>
+                <div class="previewInfo">
+                  <div class="mini">
+                    <div class="row" style="align-items:center; justify-content:space-between">
+                      <h3 style="margin:0; font-size:12px">画像情報</h3>
+                      <span class="pill" id="imgStatus">未選択</span>
+                    </div>
+                    <div class="hr"></div>
+                    <div class="kv">
+                      <div>ファイル名</div><div><b id="imgName">-</b></div>
+                      <div>形式</div><div><b id="imgType">-</b></div>
+                      <div>サイズ</div><div><b id="imgSize">-</b></div>
+                      <div>解像度</div><div><b id="imgDim">-</b></div>
+                      <div>縦横比</div><div><b id="imgAR">-</b></div>
+                    </div>
+                  </div>
+                  <div class="hint" style="margin-top:10px">
+                    ※Copilotで編集する際は、<b>同じ元画像をCopilot側にも添付</b>してください（このツールの画像はCopilotに自動送信されません）。
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <div class="row">
+              <div>
+                <label for="preset">編集プリセット</label>
+                <select id="preset">
+                  <option value="remove">不要物を削除する（消す）</option>
+                  <option value="replace_bg">背景を差し替える（置き換え）</option>
+                  <option value="change_color">色/素材/質感を変更する</option>
+                  <option value="add_object">要素を追加する（追加）</option>
+                  <option value="change_object">要素を変更する（形/配置/サイズなど）</option>
+                  <option value="style_match">テイスト/雰囲気を寄せる（スタイル）</option>
+                  <option value="add_text">テキストを追加する（必要な場合のみ）</option>
+                  <option value="composition">構図/トリミング/余白を調整する</option>
+                  <option value="cleanup">破綻修正・ノイズ除去・高品質化（軽め）</option>
+                                  <option value="other">その他（自由記述）</option>
+                </select>
+              </div>
+              <div>
+                <label for="keep">維持したいこと（任意）</label>
+                <input id="keep" type="text" placeholder="例：全体の雰囲気は維持、人物は変えない、ロゴは残す など" />
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:10px">
+              <div style="flex:1 1 100%">
+                <label for="change">希望する変更点</label>
+                <div class="row" style="gap:8px; align-items:center; margin-top:6px">
+                  <span class="pill" id="riskPill">リスク: 未評価</span>
+                  <span class="hint" id="riskMsg"></span>
+                </div>
+                <textarea id="change" placeholder="例：車体色をホワイトに変更。背景は都市夜景のまま。反射は控えめで上質に。"></textarea>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:10px">
+              <div>
+                <label for="strict">精度の好み</label>
+                <select id="strict">
+                  <option value="safe">保守（原画像を極力維持）</option>
+                  <option value="standard" selected>標準（必要部分のみ調整）</option>
+                  <option value="bold">攻め（積極的に変える）</option>
+                </select>
+              </div>
+              <div>
+                <label for="textPolicy">文字・ロゴの扱い</label>
+                <select id="textPolicy">
+                  <option value="no_text" selected>文字・ロゴは追加しない</option>
+                  <option value="allow_text">必要なら短い文字はOK</option>
+                  <option value="keep_existing">既存の文字/ロゴは変更しない（維持）</option>
+                </select>
+              </div>
+              <div>
+                <label for="quality">品質</label>
+                <select id="quality">
+                  <option value="clean">クリーン（ノイズ少なめ）</option>
+                  <option value="realistic" selected>リアル寄り（自然）</option>
+                  <option value="stylized">スタイライズ（表現優先）</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="row" style="margin-top:12px; align-items:center">
+              <div style="flex: 0 0 auto">
+                <button id="goBtn" class="btn primary" type="button">GO（プロンプト生成）</button>
+              </div>
+              <div style="flex: 0 0 auto">
+                <button id="resetBtn" class="btn ghost" type="button">入力リセット</button>
+              </div>
+              <div class="hint" style="flex: 1 1 320px">
+                入力は未入力でもOK（ただし「希望する変更点」が具体的だと成功率が上がります）。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="outputSection">
+          <div class="hd">
+            <h2>出力（編集プロンプト）</h2>
+</div>
+          <div class="pad">
+            <div class="row" style="gap:8px; align-items:center; flex-wrap:wrap">
+              <button class="btn modeBtn" id="viewClean" type="button">コピーモード</button>
+              <button class="btn modeBtn" id="viewAnno" type="button">学習モード</button>
+              <div class="hint" style="flex: 1 1 260px">
+                ・コピーモード：そのままCopilotへ貼り付ける用<br/>
+                ・学習モード：プロンプトの内容を読み解き学ぶ用
+              </div>
+            </div>
+
+            <div class="hr"></div>
+
+            <textarea id="out" class="out" readonly placeholder="ここに編集プロンプトが出力されます。"></textarea>
+
+            <div class="row" style="margin-top:10px; align-items:center">
+              <div style="flex: 0 0 auto">
+                <button id="copyBtn" class="btn" type="button">コピー</button>
+              </div>
+              <div style="flex: 0 0 auto">
+                <button id="copilotBtn" class="btn ghost" type="button">Copilotを開く</button>
+                <button id="safeBtn" class="btn ghost" type="button">安全寄せに変換</button>
+              </div>
+              <div class="hint" style="flex: 1 1 360px">
+                手順：Copilotに<b>元画像を添付</b> → ここでコピーしたプロンプトを貼り付け
+              </div>
+            
+              <div class="hint" id="safeHint" style="margin-top:8px">
+                Copilotで「責任あるAIガイドライン」アラートが出たら、<b>安全寄せに変換</b> → もう一度コピーしてお試しください。
+              </div>
+</div>
+
+            <div class="hr"></div>
+
+            <div class="mini" id="refineCard">
+              <div class="row" style="align-items:center; justify-content:space-between">
+                <h3 style="margin:0; font-size:12px">追加の微修正（任意）</h3>
+</div>
+              <div class="hint" style="margin-top:8px">
+                例：もっと明るく／左からの視点に／不要物の消し跡をなくす／余白を増やす など
+              </div>
+              <div class="row" style="margin-top:10px">
+                <div style="flex: 1 1 100%">
+                  <textarea id="refine" placeholder="ここに追記したい修正点を入力（任意）"></textarea>
+                </div>
+              </div>
+              <div class="row" style="margin-top:10px; align-items:center">
+                <div style="flex: 0 0 auto">
+                  <button id="copyRefineBtn" class="btn" type="button">追記版をコピー</button>
+                </div>
+                <div class="hint" style="flex: 1 1 380px">
+                  コピーモードの本文に「追記指示」だけを足した版をコピーします。
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+<script>
+const PASSCODE = "OXUC";
+const COPILOT_URL = "https://copilot.microsoft.com/";
+
+const $ = (id)=>document.getElementById(id);
+
+function toast(msg){
+  const t = $("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(window.__toastTimer);
+  window.__toastTimer = setTimeout(()=>t.classList.remove("show"), 1400);
+}
+
+function normalizeCode(s){
+  if(!s) return "";
+  const fw = "０１２３４５６７８９ＡＢＣＤＥＦＧＨＩＪＫＬＭＮＯＰＱＲＳＴＵＶＷＸＹＺａｂｃｄｅｆｇｈｉｊｋｌｍｎｏｐｑｒｓｔｕｖｗｘｙｚ";
+  const hw = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+  let out = "";
+  for(const ch of String(s)){
+    const idx = fw.indexOf(ch);
+    out += (idx>=0) ? hw[idx] : ch;
+  }
+  return out.trim().toUpperCase();
+}
+
+function bytesToHuman(n){
+  if(!n && n!==0) return "-";
+  const units = ["B","KB","MB","GB"];
+  let v = n, i=0;
+  while(v>=1024 && i<units.length-1){ v/=1024; i++; }
+  return `${v.toFixed(i===0?0:1)} ${units[i]}`;
+}
+
+function aspectRatio(w,h){
+  if(!w || !h) return "-";
+  const g = (a,b)=>b?g(b,a%b):a;
+  const d = g(w,h);
+  const a = Math.round(w/d), b = Math.round(h/d);
+  return `${a}:${b}`;
+}
+
+
+/** =========================
+ *  Safety rewrite (local, no API)
+ *  ========================= */
+let safetyMode = false;
+
+function sanitizeForCopilot(text){
+  if(!text) return "";
+  let t = String(text);
+
+  // よくある“強い語”をやわらげる（Copilotで止まりにくくする意図）
+  const replaces = [
+    [/\b消す\b/g, "自然に除去する"],
+    [/\b削除\b/g, "自然に除去"],
+    [/\b消去\b/g, "自然に除去"],
+    [/\b消し跡\b/g, "不自然な痕跡"],
+    [/\b作り直(して|す)\b/g, "自然に整える"],
+    [/\b完全に\b/g, "可能な範囲で"],
+    [/ロゴ|透かし|ウォーターマーク|watermark/gi, "不要な要素"],
+    [/\b殺\w*|自殺|流血|暴力|武器|銃|麻薬|薬物/gi, "（表現は穏当な範囲で）"],
+    [/\bヌード|裸|性的|ポルノ/gi, "（表現は安全な範囲で）"],
+  ];
+  for(const [re, rep] of replaces){ t = t.replace(re, rep); }
+
+  t = t.replace(/\s{2,}/g, " ").trim();
+  return t;
+}
+
+function assessRisk(text){
+  const t = (text || "").toLowerCase();
+  const rules = [
+    {k:["ロゴ","透かし","ウォーターマーク","watermark"], level:"high", msg:"ロゴ/透かし関連はCopilotで止まりやすいです。"},
+    {k:["有名人","本人","実在","特定人物","なりすまし"], level:"high", msg:"特定人物の示唆は止まりやすいです。"},
+    {k:["ヌード","裸","性的","ポルノ"], level:"high", msg:"性的表現は止まりやすいです。"},
+    {k:["自殺","流血","暴力","武器","銃","麻薬","薬物"], level:"high", msg:"危険・暴力表現は止まりやすいです。"},
+    {k:["顔を変","顔変更","整形","別人"], level:"mid", msg:"顔/人物の大幅変更は止まる場合があります。"},
+  ];
+  for(const r of rules){
+    for(const kw of r.k){
+      if(t.includes(kw.toLowerCase())) return r;
+    }
+  }
+  return {level:"low", msg:"（一般的な編集指示なら通りやすいです）"};
+}
+
+function updateRiskUI(){
+  const text = ( $("change")?.value || "" ) + " " + ( $("keep")?.value || "" );
+  const r = assessRisk(text);
+  const pill = $("riskPill");
+  const msg = $("riskMsg");
+  if(!pill || !msg) return;
+
+  pill.classList.remove("risk-low","risk-mid","risk-high");
+  if(r.level==="high"){
+    pill.textContent = "リスク: 高";
+    pill.classList.add("risk-high");
+    msg.innerHTML = "<span style='color:#be123c'>" + r.msg + "</span> <span class='hint'>→ まず「安全寄せに変換」を試してください。</span>";
+  }else if(r.level==="mid"){
+    pill.textContent = "リスク: 中";
+    pill.classList.add("risk-mid");
+    msg.innerHTML = "<span style='color:#b45309'>" + r.msg + "</span>";
+  }else{
+    pill.textContent = "リスク: 低";
+    pill.classList.add("risk-low");
+    msg.textContent = r.msg;
+  }
+}
+
+window.addEventListener("DOMContentLoaded", ()=>{
+  $("enterBtn").addEventListener("click", ()=>{
+    const agreed = !!($("agree") && $("agree").checked);
+    const pass = normalizeCode($("pass") ? $("pass").value : "");
+    if(!agreed){
+      $("gateMsg").innerHTML = "<span style='color:#b45309'>チェックを入れて同意してください。</span>";
+      $("agree").focus();
+      return;
+    }
+    if(pass !== PASSCODE){
+      $("gateMsg").innerHTML = "<span style='color:#be123c'>利用コードが違います。</span>";
+      $("pass").focus();
+      $("pass").style.borderColor = "rgba(225,29,72,.7)";
+      setTimeout(()=>{ $("pass").style.borderColor = ""; }, 900);
+      return;
+    }
+    $("gate").classList.add("hidden");
+    $("main").classList.remove("hidden");
+    toast("メイン画面を表示しました");
+    initMain();
+  });
+});
+
+let currentW = 0, currentH = 0;
+let viewMode = "clean";
+
+function initMain(){
+  setViewMode("clean");
+  bindDropzone();
+  bindButtons();
+  renderOutput("");
+  updateRiskUI();
+}
+
+function bindButtons(){
+  $("pickBtn").addEventListener("click", ()=> $("file").click());
+  $("clearBtn").addEventListener("click", clearImage);
+
+  $("file").addEventListener("change", (e)=>{
+    const f = e.target.files && e.target.files[0];
+    if(f) loadImageFile(f);
+  });
+
+  $("goBtn").addEventListener("click", ()=>{
+    safetyMode = false;
+    const prompt = renderPrompt();
+    renderOutput(prompt);
+    $("outputSection").scrollIntoView({behavior:"smooth", block:"start"});
+    toast("プロンプトを生成しました");
+  });
+
+  $("resetBtn").addEventListener("click", ()=>{
+    $("preset").value = "remove";
+    $("keep").value = "";
+    $("change").value = "";
+    $("strict").value = "standard";
+    $("textPolicy").value = "no_text";
+    $("quality").value = "realistic";
+    $("refine").value = "";
+    renderOutput("");
+    safetyMode = false;
+    updateRiskUI();
+    toast("入力をリセットしました");
+  });
+
+  $("copyBtn").addEventListener("click", async ()=>{
+    const txt = $("out").value || "";
+    if(!txt.trim()){ toast("コピーする内容がありません"); return; }
+    try{
+      await navigator.clipboard.writeText(txt);
+      toast("コピーしました");
+    }catch(e){
+      $("out").focus();
+      $("out").select();
+      toast("コピーできない環境です（手動で選択してください）");
+    }
+  });
+
+  $("copyRefineBtn").addEventListener("click", async ()=>{
+    const base = (window.__lastClean || "").trim();
+    if(!base){ toast("まずGOで生成してください"); return; }
+    const extra = ($("refine").value || "").trim();
+    const merged = extra ? (base + "\n\n追記指示：\n" + extra) : base;
+    try{
+      await navigator.clipboard.writeText(merged);
+      toast("追記版をコピーしました");
+    }catch(e){
+      $("out").value = merged;
+      $("out").focus();
+      $("out").select();
+      toast("コピーできない環境です（手動で選択してください）");
+    }
+  });
+
+  $("copilotBtn").addEventListener("click", ()=>{
+    window.open(COPILOT_URL, "_blank", "noopener,noreferrer");
+  });
+
+  $("viewClean").addEventListener("click", ()=> setViewMode("clean"));
+  $("viewAnno").addEventListener("click", ()=> setViewMode("anno"));
+  // リスク評価（ローカル表示）
+  ["change","keep","preset","strict","textPolicy","quality"].forEach((id)=>{
+    const el = $(id);
+    if(el){ el.addEventListener("input", updateRiskUI); el.addEventListener("change", updateRiskUI); }
+  });
+
+  // Copilotで止まった時用：安全寄せに変換（ローカル言い換え）
+  $("safeBtn").addEventListener("click", ()=>{
+    safetyMode = true;
+    safetyMode = false;
+    const prompt = renderPrompt();
+    renderOutput(prompt);
+    toast("安全寄せ版を生成しました");
+  });
+
+}
+
+function setViewMode(mode){
+  viewMode = mode;
+  $("viewClean").classList.toggle("active", mode==="clean");
+  $("viewAnno").classList.toggle("active", mode==="anno");
+  const last = (mode==="clean") ? (window.__lastClean||"") : (window.__lastAnno||"");
+  renderOutput(last);
+}
+
+function renderOutput(text){ $("out").value = text || ""; }
+
+function bindDropzone(){
+  const dz = $("dropzone");
+  dz.addEventListener("click", ()=> $("file").click());
+  dz.addEventListener("dragenter", (e)=>{ e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragover", (e)=>{ e.preventDefault(); dz.classList.add("drag"); });
+  dz.addEventListener("dragleave", (e)=>{ e.preventDefault(); dz.classList.remove("drag"); });
+  dz.addEventListener("drop", (e)=>{
+    e.preventDefault();
+    dz.classList.remove("drag");
+    const f = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if(f) loadImageFile(f);
+  });
+}
+
+function clearImage(){
+  currentW = 0; currentH = 0;
+  $("file").value = "";
+  $("previewImg").classList.add("hidden");
+  $("previewImg").src = "";
+  $("previewEmpty").classList.remove("hidden");
+  $("imgStatus").textContent = "未選択";
+  $("imgName").textContent = "-";
+  $("imgType").textContent = "-";
+  $("imgSize").textContent = "-";
+  $("imgDim").textContent = "-";
+  $("imgAR").textContent = "-";
+  updateRiskUI();
+  toast("画像を解除しました");
+}
+
+function loadImageFile(file){
+  if(!file.type.startsWith("image/")){
+    toast("画像ファイルを選択してください");
+    return;
+  }
+  $("imgStatus").textContent = "読込中…";
+  $("imgName").textContent = file.name || "-";
+  $("imgType").textContent = file.type || "-";
+  $("imgSize").textContent = bytesToHuman(file.size);
+
+  const reader = new FileReader();
+  reader.onload = ()=>{
+    const dataUrl = String(reader.result || "");
+    const img = new Image();
+    img.onload = ()=>{
+      currentW = img.naturalWidth || 0;
+      currentH = img.naturalHeight || 0;
+      $("imgStatus").textContent = "選択済";
+      $("imgDim").textContent = currentW && currentH ? `${currentW} × ${currentH}` : "-";
+      $("imgAR").textContent = currentW && currentH ? aspectRatio(currentW, currentH) : "-";
+
+      $("previewImg").src = dataUrl;
+      $("previewImg").classList.remove("hidden");
+      $("previewEmpty").classList.add("hidden");
+      updateRiskUI();
+      toast("画像を読み込みました");
+    };
+    img.onerror = ()=>{ $("imgStatus").textContent = "読込失敗"; toast("画像の読み込みに失敗しました"); };
+    img.src = dataUrl;
+  };
+  reader.onerror = ()=>{ $("imgStatus").textContent = "読込失敗"; toast("画像の読み込みに失敗しました"); };
+  reader.readAsDataURL(file);
+}
+
+function presetToInstruction(preset){
+  switch(preset){
+    case "remove": return "不要な要素を自然に削除してください。削除した痕跡（にじみ・不自然な塗り・歪み）が出ないように整えてください。";
+    case "replace_bg": return "背景を指定の内容に差し替えてください。被写体の輪郭（切り抜きの縁）が不自然にならないように自然に合成してください。";
+    case "change_color": return "指定の箇所の色・素材・質感を変更してください。光の当たり方や反射の一貫性は維持してください。";
+    case "add_object": return "指定の要素を追加してください。既存の遠近・光・影・反射に一致させ、合成感が出ないようにしてください。";
+    case "change_object": return "指定の要素を変更してください（形・配置・サイズ・一部デザインなど）。他の部分は極力変えず、整合性を保ってください。";
+    case "style_match": return "全体の雰囲気（トーン/色/質感/光）を指定に寄せてください。内容（物体や構図）は大きく変えないでください。";
+    case "add_text": return "必要な場合のみ短いテキストを追加してください（誤字・不自然な文字崩れが起きないよう注意）。";
+    case "composition": return "構図・トリミング・余白を調整して、意図が伝わるようにしてください。被写体の歪みが出ないようにしてください。";
+    case "cleanup": return "破綻（歪み/不自然な境界/ノイズ）を自然に修正し、全体の見栄えを整えてください。やりすぎない範囲で改善してください。";
+    case "other": return "ユーザーの希望する変更点を優先し、他の部分はできるだけ維持してください。曖昧な点があれば確認質問をせず、自然な解釈で仕上げてください。";
+    default: return "指定の変更を適用し、他の部分は可能な限り維持してください。";
+  }
+}
+
+function policyText(p){
+  if(p==="allow_text") return "テキスト追加は必要最小限なら許可します（読みやすく、崩れないように）。ロゴの新規生成はしないでください。";
+  if(p==="keep_existing") return "既存の文字/ロゴは変更しないで維持してください。新しい文字は追加しないでください。";
+  return "新しい文字・ロゴ・透かしは追加しないでください。";
+}
+
+function strictText(s){
+  if(s==="safe") return "原画像の雰囲気・構図・要素を極力維持し、変更は指定部分のみに限定してください。";
+  if(s==="bold") return "指定の意図を優先し、必要なら積極的に調整してください。ただし不自然さは避けてください。";
+  return "必要部分のみ調整し、その他はできるだけ維持してください。";
+}
+
+function qualityText(q){
+  if(q==="clean") return "クリーンでノイズの少ない仕上がり。";
+  if(q==="stylized") return "表現を優先し、スタイライズしてもよい。";
+  return "自然でリアル寄りの仕上がり。";
+}
+
+function renderPrompt(){
+  const preset = $("preset").value;
+  const keepRaw = ($("keep").value || "").trim();
+  const changeRaw = ($("change").value || "").trim();
+  const keep = safetyMode ? sanitizeForCopilot(keepRaw) : keepRaw;
+  const change = safetyMode ? sanitizeForCopilot(changeRaw) : changeRaw;
+  const strict = $("strict").value;
+  const textPolicy = $("textPolicy").value;
+  const quality = $("quality").value;
+
+  const baseLines = [];
+  baseLines.push("添付した画像をベースに、以下の編集を行ってください。");
+  if(currentW && currentH){
+    baseLines.push(`元画像の解像度は ${currentW}×${currentH}（縦横比は維持）。`);
+  }else{
+    baseLines.push("元画像の縦横比は維持してください。");
+  }
+  baseLines.push("");
+  baseLines.push("【編集方針】");
+  baseLines.push(`- ${strictText(strict)}`);
+  baseLines.push(`- ${policyText(textPolicy)}`);
+  baseLines.push(`- 画質：${qualityText(quality)}`);
+  baseLines.push("- 破綻（歪み/不自然な境界/手や文字の崩れ）が出ないようにしてください。");
+  baseLines.push("- 出力は1枚。");
+  baseLines.push("");
+  baseLines.push("【編集内容】");
+  baseLines.push(`- プリセット：${$("preset").selectedOptions[0].textContent}`);
+  baseLines.push(`- 指示：${presetToInstruction(preset)}`);
+  baseLines.push(`- 希望する変更点：${change || "（未入力）"}`);
+  if(keep){ baseLines.push(`- 維持したいこと：${keep}`); }
+  baseLines.push("");
+  baseLines.push("【重要】");
+  baseLines.push("- 指示していない部分は勝手に変更しないでください。");
+  baseLines.push("- 不自然な合成感が出た場合は、自然になるように再調整してください。");
+
+  const clean = baseLines.join("\n");
+
+  const anno = [
+    "## Copilot 画像編集プロンプト（学習モード）",
+    "",
+    "### 1) 前提（最重要）",
+    "- 本文：添付した画像をベースに編集する",
+    "- コメント：Copilotには“元画像を添付”した上で、編集指示を渡すのが基本です",
+    "",
+    "### 2) 変更範囲の制御",
+    `- 本文：${strictText(strict)}`,
+    "- コメント：ここで“勝手に変えない”強さを決めます",
+    "",
+    "### 3) 文字・ロゴの扱い",
+    `- 本文：${policyText(textPolicy)}`,
+    "- コメント：誤字・文字崩れ・勝手なロゴ生成を防ぐ狙いです",
+    "",
+    "### 4) 画質の方針",
+    `- 本文：${qualityText(quality)}`,
+    "- コメント：リアル/クリーン/スタイライズの方向性を先に固定するとブレが減ります",
+    "",
+    "### 5) 編集内容（差分）",
+    `- プリセット：${$("preset").selectedOptions[0].textContent}`,
+    `- 指示：${presetToInstruction(preset)}`,
+    `- 希望する変更点：${change || "（未入力）"}`,
+    keep ? `- 維持したいこと：${keep}` : "- 維持したいこと：指定なし",
+    "",
+    "### 6) 品質チェック（最後の一押し）",
+    "- 指示していない部分は変更しない",
+    "- 境界・影・反射・遠近の不整合が出たら自然になるよう修正",
+    "",
+    "----",
+    "",
+    "（コピーモード本文）",
+    clean
+  ].join("\n");
+
+  window.__lastClean = clean;
+  window.__lastAnno = anno;
+  return (viewMode==="anno") ? anno : clean;
+}
+</script>
+</body>
+</html>
