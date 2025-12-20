@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="ja">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data: https://hits.sh; script-src 'self' 'unsafe-inline' https://gc.zgo.at; connect-src 'self' https://*.goatcounter.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; frame-ancestors 'self'; upgrade-insecure-requests">
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Copilot向け 画像編集プロンプトジェネレーターPoC</title>
@@ -183,6 +184,9 @@
     .modeBtn.active{background: linear-gradient(135deg, rgba(124,58,237,.95), rgba(59,130,246,.70)); color:#fff; border-color: rgba(124,58,237,.65);}
 
   </style>
+
+  <!-- GoatCounter (analytics) -->
+  <script data-goatcounter="https://copilot-image-edit-poc.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
 </head>
 <body>
   <div class="wrap">
@@ -846,5 +850,12 @@ function renderPrompt(){
   return (viewMode==="anno") ? anno : clean;
 }
 </script>
+
+  <!-- Hits (visible counter, approximate) -->
+  <a href="https://hits.sh/kanao223.github.io/copilot-image-edit-poc" target="_blank" rel="noopener noreferrer"
+     style="position:fixed; right:14px; bottom:14px; z-index:9999; text-decoration:none;">
+    <img alt="Hits" src="https://hits.sh/kanao223.github.io/copilot-image-edit-poc.svg?style=flat-square" />
+  </a>
+
 </body>
 </html>
